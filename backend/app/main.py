@@ -61,9 +61,35 @@ def dashboard(request: Request):
     return templates.TemplateResponse("dashboard.html", {"request": request, "api_prefix": settings.API_V1_PREFIX})
 
 
+@app.get("/", include_in_schema=False)
+def dashboard(request: Request):
+    return templates.TemplateResponse(
+        "dashboard.html", {"request": request, "active": "dashboard"}
+    )
+
 @app.get("/document/{document_name}", include_in_schema=False)
 def document_detail(request: Request, document_name: str):
     return templates.TemplateResponse(
         "document_result.html",
-        {"request": request, "document_name": document_name, "api_prefix": settings.API_V1_PREFIX},
+        {"request": request, "document_name": document_name, "active": ""},
+    )
+@app.get("/", include_in_schema=False)
+def dashboard(request: Request):
+    return templates.TemplateResponse(
+        "dashboard.html", {"request": request, "active": "dashboard"}
+    )
+
+
+@app.get("/new", include_in_schema=False)   # <-- NEW
+def new_document(request: Request):
+    return templates.TemplateResponse(
+        "new_document.html", {"request": request, "active": "new_document"}
+    )
+
+
+@app.get("/document/{document_name}", include_in_schema=False)
+def document_detail(request: Request, document_name: str):
+    return templates.TemplateResponse(
+        "document_result.html",
+        {"request": request, "document_name": document_name, "active": ""},
     )

@@ -55,3 +55,12 @@ def list_all(db: Session, limit: int = 200) -> List[DocumentListItem]:
 
 def parse_result_json(record: ProcessedDocument) -> dict:
     return json.loads(record.result_json)
+
+def _to_float(v):
+    try:
+        return float(v)
+    except (TypeError, ValueError):
+        return None
+
+# inside list_all(), in the DocumentListItem(...) constructor add:
+#     overall_confidence=_to_float(r.overall_confidence),

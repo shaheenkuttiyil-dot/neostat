@@ -2,47 +2,58 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Document Intelligence Dashboard</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Dashboard — Document Intelligence</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="/static/css/style.css">
 </head>
 <body>
-  <header class="topbar">
-    <h1>Document Intelligence Platform</h1>
-  </header>
+<div class="app">
 
-  <main class="container">
-    <section class="card">
-      <h2>Process a Document</h2>
-      <form id="upload-form">
-        <label>Document Type
-          <select id="document_type" required>
-            <option value="invoice">Invoice</option>
-            <option value="balance_sheet">Balance Sheet</option>
-            <option value="profit_and_loss">Profit &amp; Loss</option>
-            <option value="cash_flow_statement">Cash Flow Statement</option>
-          </select>
-        </label>
-        <label>File (PDF / JPG / PNG, max 3 pages)
-          <input type="file" id="file" accept=".pdf,.jpg,.jpeg,.png" required>
-        </label>
-        <button type="submit" id="submit-btn">Process</button>
-      </form>
-      <div id="upload-status"></div>
-    </section>
+  {% include "_sidebar.html" %}
 
-    <section class="card">
-      <h2>Processed Documents</h2>
+  <main class="main main-wide">
+    <div class="page-head">
+      <div>
+        <h1>Dashboard</h1>
+        <p class="lede">Processed financial documents and validation results.</p>
+      </div>
+    </div>
+
+    <div class="stats-grid">
+      <div class="stat-card">
+        <div class="stat-icon stat-icon-neutral"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M9 13h6M9 17h4"/></svg></div>
+        <div class="stat-value" id="stat-total">0</div>
+        <div class="stat-label">Total Documents</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon stat-icon-pass"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="m8.5 12.2 2.4 2.4 4.8-5"/></svg></div>
+        <div class="stat-value" id="stat-passed">0</div>
+        <div class="stat-label">Passed</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon stat-icon-fail"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="m9 9 6 6"/><path d="m15 9-6 6"/></svg></div>
+        <div class="stat-value" id="stat-failed">0</div>
+        <div class="stat-label">Failed</div>
+      </div>
+    </div>
+
+    <section class="card table-card" id="docs-card" style="display:none;">
+      <h2>Processed documents</h2>
       <table id="doc-table">
-        <thead>
-          <tr><th>Document Name</th><th>Type</th><th>Status</th><th>Processed At</th></tr>
-        </thead>
-        <tbody id="doc-table-body">
-          <tr><td colspan="4">Loading…</td></tr>
-        </tbody>
+        <thead><tr><th>Document name</th><th>Type</th><th>Status</th><th>Confidence</th><th>Processed at</th></tr></thead>
+        <tbody id="doc-table-body"><tr><td colspan="5">Loading…</td></tr></tbody>
       </table>
     </section>
-  </main>
 
-  <script src="/static/js/app.js"></script>
+    <section class="empty-state" id="empty-state">
+      <svg viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M9 13h6M9 17h4"/></svg>
+      <p class="empty-title">No documents processed yet</p>
+      <p class="empty-sub">Upload a document to get started.</p>
+    </section>
+  </main>
+</div>
+<script src="/static/js/dashboard.js"></script>
 </body>
 </html>

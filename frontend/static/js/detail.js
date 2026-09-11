@@ -11,7 +11,7 @@ function renderFields(fields) {
       : "";
     return `<div class="field-row">
       <div class="field-name">${name}</div>
-      <div>
+      <div class="field-value-block">
         <div class="field-value ${isNull ? 'is-null' : ''}">${isNull ? 'null (missing)' : fv.value}</div>
         ${evidence}
       </div>

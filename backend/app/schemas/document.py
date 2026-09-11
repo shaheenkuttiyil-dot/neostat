@@ -62,3 +62,10 @@ class ErrorDetail(BaseModel):
 
 class ErrorResponse(BaseModel):
     error: ErrorDetail
+    
+class DocumentListItem(BaseModel):
+    document_name: str
+    document_type: str
+    processing_status: str
+    processed_at: datetime
+    overall_confidence: Optional[float] = None   # <-- NEW (needed for "Avg Confidence" card)

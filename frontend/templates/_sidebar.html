@@ -1,0 +1,68 @@
+<aside class="sidebar">
+    <a href="/" class="brand">
+        <div class="brand-mark">
+            <svg viewBox="0 0 24 24"
+                 fill="none"
+                 stroke="currentColor"
+                 stroke-width="2"
+                 stroke-linecap="round"
+                 stroke-linejoin="round">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                <path d="M14 2v6h6"/>
+            </svg>
+        </div>
+
+        <div>
+            <div class="brand-name">Document Intelligence</div>
+            <div class="brand-sub">Financial Extraction</div>
+        </div>
+    </a>
+
+    <nav>
+        <a href="/" class="nav-item {{ 'active' if active == 'dashboard' else '' }}">
+            <svg viewBox="0 0 24 24"
+                 fill="none"
+                 stroke="currentColor"
+                 stroke-width="2"
+                 stroke-linecap="round"
+                 stroke-linejoin="round">
+                <rect x="3" y="3" width="7" height="7" rx="1"/>
+                <rect x="14" y="3" width="7" height="7" rx="1"/>
+                <rect x="14" y="14" width="7" height="7" rx="1"/>
+                <rect x="3" y="14" width="7" height="7" rx="1"/>
+            </svg>
+            Dashboard
+        </a>
+
+        <a href="/new" class="nav-item {{ 'active' if active == 'new_document' else '' }}">
+            <svg viewBox="0 0 24 24"
+                 fill="none"
+                 stroke="currentColor"
+                 stroke-width="2"
+                 stroke-linecap="round"
+                 stroke-linejoin="round">
+                <path d="M12 3v12"/>
+                <path d="m7 10 5 5 5-5"/>
+                <path d="M5 21h14"/>
+            </svg>
+            New Document
+        </a>
+    </nav>
+
+    <div class="sidebar-foot">
+        AI-powered extraction, OCR &amp; financial validation for invoices and statements.
+    </div>
+</aside>
+
+<script>
+  /* Highlight the current page in the sidebar based on the URL,
+     so it works even if the backend doesn't pass an `active` variable. */
+  (function () {
+    var path = window.location.pathname.replace(/\/+$/, "") || "/";
+    document.querySelectorAll(".sidebar .nav-item").forEach(function (a) {
+      var href = (a.getAttribute("href") || "/").replace(/\/+$/, "") || "/";
+      a.classList.toggle("active", href === path);
+    });
+  })();
+</script>
+

@@ -2,40 +2,49 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>{{ document_name }} — Result</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{ document_name }} — Document Intelligence</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="/static/css/style.css">
 </head>
 <body>
-  <header class="topbar">
-    <h1><a href="/" class="back-link">&larr; Dashboard</a> / {{ document_name }}</h1>
-  </header>
+<div class="app">
 
-  <main class="container">
+  {% include "_sidebar.html" %}
+
+  <main class="main">
+    <a href="/" class="back-link">
+      <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+      Back to dashboard
+    </a>
+
     <section class="card" id="summary-card">Loading…</section>
 
     <section class="card">
-      <h2>Extracted Fields</h2>
+      <h2>Extracted fields</h2>
       <div id="fields-container"></div>
     </section>
 
     <section class="card">
-      <h2>Line Items</h2>
+      <h2>Line items</h2>
       <div id="line-items-container"></div>
     </section>
 
     <section class="card">
-      <h2>Financial Validation</h2>
+      <h2>Financial validation</h2>
       <div id="validation-container"></div>
     </section>
 
     <section class="card">
       <h2>Raw JSON</h2>
-      <button id="toggle-json-btn">Show / Hide Raw JSON</button>
+      <button class="ghost-btn" id="toggle-json-btn">Show / hide raw JSON</button>
       <pre id="raw-json" style="display:none;"></pre>
     </section>
   </main>
+</div>
 
-  <script>const DOCUMENT_NAME = {{ document_name | tojson }};</script>
-  <script src="/static/js/detail.js"></script>
+<script>const DOCUMENT_NAME = {{ document_name | tojson }};</script>
+<script src="/static/js/detail.js"></script>
 </body>
 </html>
