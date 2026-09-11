@@ -46,7 +46,7 @@ def process_document(db: Session, filename: str, content: bytes,
         if extraction.periods:
             extracted_data["periods"] = extraction.periods
 
-        processing_status = "PASS" if validation_result.overall_status == "PASS" else "FAILED"
+        processing_status = "PASS" if validation_result.overall_status != "FAIL" else "FAILED"
 
         response = DocumentProcessResponse(
             document_name=filename,

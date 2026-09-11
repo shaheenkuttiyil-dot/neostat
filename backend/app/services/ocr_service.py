@@ -109,7 +109,15 @@ def _auto_orient(img: Image.Image) -> Image.Image:
 def _layout_aware_ocr(img: Image.Image) -> str:
     """Reconstructs rows/columns from word-level bounding boxes instead of
     returning a flattened text blob."""
+    # PSM 4 ("assume a single column of text of variable sizes") reconstructs
+    # dense financial tables far more reliably than the default PSM 3 - on a
+    # real bank P&L test document, PSM 3 silently dropped entire numeric
+    # tokens from bold "Total" rows during full-page layout analysis (verified
+    # by cropping the same region in isolation, where Tesseract read it fine),
+    # while PSM 4 captured them correctly. Kept as a config override rather
+    # than the library default in case a future document type regresses.
     data = pytesseract.image_to_data(img, config="--psm 4", output_type=pytesseract.Output.DICT)
+
     words = []
     n = len(data["text"])
     for i in range(n):

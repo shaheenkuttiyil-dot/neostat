@@ -6,9 +6,10 @@ platform environment variables in deployment). Nothing sensitive is hardcoded.
 import os
 from functools import lru_cache
 
-
 try:
     from dotenv import load_dotenv
+    # Look for .env in the project root (one level above backend/), and also
+    # allow a .env placed directly inside backend/ - whichever is found first.
     _here = os.path.dirname(os.path.abspath(__file__))  # backend/app/core
     _backend_dir = os.path.dirname(os.path.dirname(_here))  # backend/
     _project_root = os.path.dirname(_backend_dir)  # project-root/
@@ -17,7 +18,10 @@ try:
             load_dotenv(_candidate)
             break
 except ImportError:
+    # python-dotenv not installed - fall back to relying on real environment
+    # variables being set directly (e.g. by the deployment platform).
     pass
+
 
 class Settings:
     APP_NAME: str = "Document Intelligence Platform"
@@ -47,6 +51,12 @@ class Settings:
 
     # Financial validation tolerance (absolute currency-unit tolerance)
     VALIDATION_TOLERANCE: float = float(os.getenv("VALIDATION_TOLERANCE", "1.0"))
+    # Relative tolerance as a fraction (0.001 = 0.1%). A fixed absolute
+    # tolerance alone is meaningless for financial statements reported in
+    # thousands/crores - a genuine single-digit OCR misread on a 9-figure
+    # number produces a variance of a few thousand, which is proportionally
+    # tiny but dwarfs an absolute tolerance of 1.0. A check passes if its
+    # variance is within EITHER the absolute OR the relative tolerance.
     VALIDATION_RELATIVE_TOLERANCE: float = float(os.getenv("VALIDATION_RELATIVE_TOLERANCE", "0.001"))
 
     # Logging

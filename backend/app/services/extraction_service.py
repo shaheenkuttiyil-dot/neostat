@@ -33,44 +33,18 @@ MIN_FIELDS = {
         "invoice_number", "invoice_date", "vendor_name", "customer_name",
         "currency", "subtotal", "tax_amount", "discount", "total_amount",
     ],
-        "balance_sheet": [
+    "balance_sheet": [
         "total_assets", "total_liabilities", "total_equity",
         "total_equity_and_liabilities", "reporting_period", "currency",
     ],
     "profit_and_loss": [
-    "revenue",
-    "cost_of_sales",
-    "gross_profit",
-    "operating_expenses",
-    "operating_profit",
-    "tax",
-    "net_profit",
-    "interest_earned",
-    "other_income",
-    "total_income",
-    "interest_expended",
-    "provisions_and_contingencies",
-    "total_expenditure",
-    "consolidated_net_profit_before_minority_interest",
-    "minority_interest",
-    "consolidated_net_profit_attributable_to_group",
-    "current_profit",
-    "brought_forward_profit",
-    "total_available_for_appropriation",
-    "reporting_period",
-    "currency",
-],
+        "revenue", "cost_of_sales", "gross_profit", "operating_expenses",
+        "operating_profit", "tax", "net_profit", "reporting_period", "currency",
+    ],
     "cash_flow_statement": [
-    "operating_cash_flow",
-    "investing_cash_flow",
-    "financing_cash_flow",
-    "fx_translation_adjustment",
-    "opening_cash",
-    "net_change_in_cash",
-    "closing_cash",
-    "reporting_period",
-    "currency",
-],
+        "operating_cash_flow", "investing_cash_flow", "financing_cash_flow",
+        "opening_cash", "net_change_in_cash", "closing_cash", "reporting_period", "currency",
+    ],
 }
 
 SYSTEM_PROMPT = """You are a precise financial document data extraction engine.
@@ -109,7 +83,6 @@ Rules you MUST follow:
    If you cannot confidently assign quantity/unit_price for a row, leave
    those two fields null rather than guessing - but still include the row
    with its description and amount.
-
 3e. Financial statement line items (balance sheet, P&L, cash flow) often show
    a small "Schedule" or "Note" reference number (e.g. "13", "14", "15", "16")
    immediately between the row label and its actual monetary value - e.g.
@@ -268,6 +241,9 @@ def _call_groq(system_prompt: str, user_prompt: str) -> str:
             logger.warning("Groq call failed (attempt %d/%d): %s - retrying in %ds",
                             attempt + 1, settings.LLM_MAX_RETRIES, exc, wait)
             time.sleep(wait)
+
+    logger.error("Groq call failed after %d attempts: %s", settings.LLM_MAX_RETRIES, last_exc)
+    raise ExtractionError("LLM provider (Groq) was unavailable after multiple retries.")
 
 
 def _regex_fallback_invoice_number(pages_text: List[str]) -> Optional[Dict]:
