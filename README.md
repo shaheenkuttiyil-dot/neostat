@@ -28,7 +28,7 @@ See `docs/architecture.png` for the diagram.
 Layered design (backend/app):
 - `services/document_validation_service.py` — input-control layer only (file type, corruption, page count)
 - `services/ocr_service.py` — native PDF text extraction with Tesseract OCR fallback for scanned pages/images
-- `services/extraction_service.py` — LLM-based structured extraction (provider-agnostic: Anthropic or OpenAI)
+- `services/extraction_service.py` — LLM-based structured extraction via Groq's OpenAI-compatible chat-completions API
 - `services/financial_validation_service.py` — per-document-type calculation checks
 - `services/document_service.py` — orchestrates the full pipeline end-to-end
 - `repositories/document_repository.py` — persistence, isolated from business logic
@@ -45,7 +45,7 @@ Layered design (backend/app):
 | LLM extraction | Groq (Llama 3.3 70B) | Fast inference, generous free tier, OpenAI-compatible API |
 | Database | SQLite | Zero-setup, file-based, sufficient for assessment scope; swappable via `DATABASE_URL` |
 | Frontend | Plain HTML/CSS/JS + Jinja2 (served by FastAPI) | No separate frontend stack required per spec; fastest to build and deploy as one service |
-| Deployment | Render / Railway (free tier) | One process serves both API and frontend |
+| Deployment | Render (free tier) | One process serves both API and frontend |
 
 ## 3. Local Setup
 
@@ -81,15 +81,16 @@ See `.env.example`. Key variables:
 - `GROQ_MODEL` — defaults to `llama-3.3-70b-versatile`; check Groq's console for current supported models
 - `MAX_PAGES`, `MAX_FILE_SIZE_MB` — input constraints
 - `VALIDATION_TOLERANCE` — absolute currency-unit tolerance for PASS/FAIL
+- `VALIDATION_RELATIVE_TOLERANCE` — relative tolerance (fraction of reported value); a check passes if within *either* the absolute or relative tolerance, whichever is larger
 
 No secrets are committed to source control (`.gitignore` excludes `.env`).
 
 ## 5. Deployed URLs
 
-- Frontend: `<fill in after deployment>`
-- Backend API base: `<fill in after deployment>`
-- Swagger/OpenAPI: `<backend-url>/docs`
-- Public GitHub repository: `<fill in>`
+- Frontend: `https://neostat-shaheen.onrender.com/`
+- Backend API base: `https://neostat-shaheen.onrender.com/api/v1`
+- Swagger/OpenAPI: `https://neostat-shaheen.onrender.com/docs`
+- Public GitHub repository: `https://github.com/shaheenkuttiyil-dot/neostat`
 
 ## 6. API Reference & Examples
 
@@ -102,22 +103,23 @@ No secrets are committed to source control (`.gitignore` excludes `.env`).
 
 **POST /api/v1/documents/process**
 ```bash
-curl -X POST http://localhost:8000/api/v1/documents/process \
+curl -X POST https://neostat-shaheen.onrender.com/api/v1/documents/process \
   -F "file=@sample_invoice.pdf" \
   -F "document_type=invoice"
 ```
 
 **GET by document name**
 ```bash
-curl http://localhost:8000/api/v1/documents/sample_invoice.pdf
+curl https://neostat-shaheen.onrender.com/api/v1/documents/sample_invoice.pdf
 ```
 
 **List processed documents**
 ```bash
-curl http://localhost:8000/api/v1/documents
+curl https://neostat-shaheen.onrender.com/api/v1/documents
 ```
 
-Sample full response: see `sample_outputs/sample_invoice_result.json`.
+Sample full responses: see `sample_outputs/` (one JSON per document type —
+invoice, balance sheet, profit & loss, cash flow statement).
 
 ## 7. OCR / LLM Services Used
 
@@ -138,8 +140,11 @@ given (0.9 if grounded, 0.4 if the snippet doesn't match the source, 0.5 if no
 evidence was supplied at all, `null` if the value itself is null). This won't
 catch every extraction error, but it flags likely-hallucinated or misread
 values for review rather than presenting every field as equally trustworthy.
-A stronger version would combine this with OCR-engine word-level confidence
-and cross-field consistency checks (see section 12).
+A document-level `overall_confidence` is computed as the average of the
+per-field confidence scores that were actually set; fields with no confidence
+score are excluded from the average rather than counted as 0. A stronger
+version would combine this with OCR-engine word-level confidence and
+cross-field consistency checks (see section 12).
 
 ## 9. Financial Validation Rules & Tolerance
 
@@ -149,10 +154,16 @@ Implemented per document type in `services/financial_validation_service.py`:
   check where present; GSTIN/tax-ID format validation (flags OCR-corrupted
   tax IDs rather than silently trusting them).
 - **Balance Sheet**: `total_liabilities + total_equity ≈ total_assets`.
-- **Profit & Loss**: `revenue - cost_of_sales ≈ gross_profit`; `gross_profit - operating_expenses ≈ operating_profit`; `operating_profit - tax ≈ net_profit`.
-- **Cash Flow Statement**: `operating + investing + financing + fx_adjustment ≈ net_change_in_cash`; `opening_cash + net_change_in_cash ≈ closing_cash`.
+- **Profit & Loss**: `revenue - cost_of_sales ≈ gross_profit`; `gross_profit - operating_expenses ≈ operating_profit`; `operating_profit - tax ≈ net_profit`. Note: these checks are `NOT_APPLICABLE` for bank/financial-institution-format P&L statements (e.g. "Interest Earned / Interest Expended" structured statements), which don't use a revenue/COGS/gross-profit model at all — the extractor correctly returns `null` rather than inventing values for concepts that don't exist in that document's format.
+- **Cash Flow Statement**: `operating + investing + financing + fx_adjustment ≈ net_change_in_cash`; `opening_cash + net_change_in_cash ≈ closing_cash`. If `fx_translation_adjustment` isn't found in the document, it defaults to 0 rather than being skipped — but the check's `operands` include an `fx_adjustment_source` flag (`extracted` vs `assumed_zero`) so a FAIL can be distinguished from a genuine reconciliation problem versus a missing FX line.
 
-Tolerance: `VALIDATION_TOLERANCE` (default 1.0 currency unit absolute).
+Tolerance: a check passes if the variance is within *either* `VALIDATION_TOLERANCE`
+(absolute, default 1.0 currency unit) *or* `VALIDATION_RELATIVE_TOLERANCE`
+(default 0.1% of the reported value), whichever allowance is larger. An
+absolute-only tolerance is meaningless for figures reported in
+thousands/crores, where a genuine single-digit OCR misread produces a
+variance of a few thousand that is proportionally tiny but would dwarf a
+small absolute unit.
 Any check where a required input is missing returns `NOT_APPLICABLE`, never an assumed value.
 Note: Pydantic guarantees the *shape* of extraction output is correct; it does
 not guarantee the *values* are correct. Financial validation is the layer that
@@ -201,6 +212,12 @@ Extraction quality:
 - No systematic completeness check beyond financial validation - the
   extracted JSON can look well-formed while still missing a row the LLM
   simply didn't surface.
+- The financial validation formulas assume a standard commercial company's
+  P&L structure (revenue → COGS → gross profit → operating profit → net
+  profit). Bank/NBFC-format P&L statements (interest income/expense based)
+  don't fit this model and will correctly show `NOT_APPLICABLE` for all P&L
+  checks rather than a false PASS/FAIL - a production system would add a
+  second validator path for that statement format.
 
 Document handling:
 - Document type is supplied by the caller/UI, not auto-classified. A
@@ -214,13 +231,18 @@ Document handling:
   token cost. A production system would chunk or pre-filter to relevant
   regions before the LLM call.
 
-Reliability:
+Reliability & Performance:
 - Retry/backoff is implemented for Groq only (exponential backoff on
   429/5xx/timeout, `LLM_MAX_RETRIES` configurable). There is no fallback to a
   second LLM provider if Groq itself is down.
 - Processing is synchronous - a request blocks for the full
-  validate→OCR→extract→validate-financials pipeline (observed ~3-30s
-  depending on document complexity). No background job queue/polling.
+  validate→OCR→extract→validate-financials pipeline. Locally this takes
+  ~8-12s; on the free-tier Render deployment it can take 90-140s, because
+  Tesseract OCR is CPU-bound and free-tier instances are heavily
+  CPU-throttled (~0.1 vCPU) - a hosting constraint, not an algorithmic one.
+  Per-stage timing is logged (`TIMING ocr_ms=... llm_extraction_ms=...`) to
+  make this measurable rather than anecdotal. No background job
+  queue/polling.
 - No idempotency - re-uploading the same file creates a new processing
   record rather than detecting and reusing an existing result.
 - No caching of previously processed documents.
@@ -253,11 +275,13 @@ Testing:
 - Add authentication (API keys / OAuth) and per-tenant data isolation.
 - Move to PostgreSQL with proper migrations (Alembic) and object storage (S3-compatible) for original files.
 - Add async/background job processing (a job ID + worker + status polling) instead of synchronous request-blocking processing.
+- Move OCR off CPU-constrained free-tier hosting (or offload to a cloud OCR API) to remove the throttling-driven latency seen on Render's free tier.
 - Replace gap-threshold table reconstruction with a proper layout/table-structure model, and store bounding-box coordinates so evidence can be highlighted directly on the source document image in the UI.
 - Add automatic document-type classification as a first pipeline stage.
 - Add a second LLM provider as an automatic fallback if Groq is unavailable.
 - Add rate limiting and stronger adversarial-file protections.
 - Build out a systematic OCR test matrix and a financial-validation edge-case test matrix, plus a regression dataset.
+- Add a bank/NBFC-format P&L validator path (Total Income − Total Expenditure ≈ Net Profit) alongside the existing commercial-company formula, selected based on which fields the document actually populates.
 - Redesign the frontend around validation status first (pass/fail/needs-review at a glance) with document preview + evidence highlighting, keeping raw JSON as a secondary technical view.
 
 ## 14. AI Coding Assistants Used
