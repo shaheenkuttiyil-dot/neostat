@@ -43,7 +43,7 @@ class Settings:
     # LLM provider used for field/table extraction: Groq only.
     LLM_PROVIDER: str = "groq"
     GROQ_API_KEY: str = os.getenv("GROQ_API_KEY", "")
-    GROQ_MODEL: str = os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile")
+    GROQ_MODEL: str = os.getenv("GROQ_MODEL", "openai/gpt-oss-120b")
     LLM_MAX_RETRIES: int = int(os.getenv("LLM_MAX_RETRIES", "3"))
 
     # OCR
