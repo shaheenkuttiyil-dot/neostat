@@ -263,7 +263,9 @@ def validate_cash_flow(fields: Dict[str, FieldValue]) -> ValidationResult:
     ocf = _num(fields, "operating_cash_flow")
     icf = _num(fields, "investing_cash_flow")
     fcf = _num(fields, "financing_cash_flow")
-    fx = _num(fields, "fx_translation_adjustment") or 0.0
+    fx_raw = _num(fields, "fx_translation_adjustment")
+    fx = fx_raw if fx_raw is not None else 0.0
+    fx_source = "extracted" if fx_raw is not None else "assumed_zero (not found in document)"
     net_change = _num(fields, "net_change_in_cash")
     opening = _num(fields, "opening_cash")
     closing = _num(fields, "closing_cash")
@@ -273,7 +275,7 @@ def validate_cash_flow(fields: Dict[str, FieldValue]) -> ValidationResult:
         calc_net_change = ocf + icf + fcf + fx
     checks.append(_check(
         "net_change_in_cash_check", "operating + investing + financing + fx_adjustment",
-        {"operating_cash_flow": ocf, "investing_cash_flow": icf, "financing_cash_flow": fcf, "fx_adjustment": fx},
+        {"operating_cash_flow": ocf, "investing_cash_flow": icf, "financing_cash_flow": fcf, "fx_adjustment": fx,"fx_adjustment_source": fx_source},
         calc_net_change, net_change,
     ))
 

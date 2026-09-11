@@ -296,8 +296,14 @@ def extract_fields(document_type: str, pages_text: List[str]) -> ExtractionPaylo
     try:
         payload = ExtractionPayload(**parsed)
     except Exception as exc:
-        logger.error("LLM output did not match extraction schema: %s", exc)
-        raise ExtractionError("LLM output did not match the expected extraction schema.") from exc
+        logger.error(
+            "LLM output did not match extraction schema: %s | parsed=%s",
+            exc,
+            json.dumps(parsed, ensure_ascii=False)[:5000],
+        )
+        raise ExtractionError(
+            "LLM output did not match the expected extraction schema."
+        ) from exc
 
     # Deterministic safety net: invoice_number is mandatory and was observed
     # to be missed by the LLM on noisy OCR text.
