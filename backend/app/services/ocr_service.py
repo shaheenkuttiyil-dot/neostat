@@ -109,8 +109,7 @@ def _auto_orient(img: Image.Image) -> Image.Image:
 def _layout_aware_ocr(img: Image.Image) -> str:
     """Reconstructs rows/columns from word-level bounding boxes instead of
     returning a flattened text blob."""
-    data = pytesseract.image_to_data(img, output_type=pytesseract.Output.DICT)
-
+    data = pytesseract.image_to_data(img, config="--psm 4", output_type=pytesseract.Output.DICT)
     words = []
     n = len(data["text"])
     for i in range(n):

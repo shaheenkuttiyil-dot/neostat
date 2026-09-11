@@ -7,6 +7,18 @@ import os
 from functools import lru_cache
 
 
+try:
+    from dotenv import load_dotenv
+    _here = os.path.dirname(os.path.abspath(__file__))  # backend/app/core
+    _backend_dir = os.path.dirname(os.path.dirname(_here))  # backend/
+    _project_root = os.path.dirname(_backend_dir)  # project-root/
+    for _candidate in (os.path.join(_backend_dir, ".env"), os.path.join(_project_root, ".env")):
+        if os.path.exists(_candidate):
+            load_dotenv(_candidate)
+            break
+except ImportError:
+    pass
+
 class Settings:
     APP_NAME: str = "Document Intelligence Platform"
     API_V1_PREFIX: str = "/api/v1"
@@ -35,6 +47,7 @@ class Settings:
 
     # Financial validation tolerance (absolute currency-unit tolerance)
     VALIDATION_TOLERANCE: float = float(os.getenv("VALIDATION_TOLERANCE", "1.0"))
+    VALIDATION_RELATIVE_TOLERANCE: float = float(os.getenv("VALIDATION_RELATIVE_TOLERANCE", "0.001"))
 
     # Logging
     LOG_LEVEL: str = os.getenv("LOG_LEVEL", "INFO")

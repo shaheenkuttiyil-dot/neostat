@@ -33,17 +33,44 @@ MIN_FIELDS = {
         "invoice_number", "invoice_date", "vendor_name", "customer_name",
         "currency", "subtotal", "tax_amount", "discount", "total_amount",
     ],
-    "balance_sheet": [
-        "total_assets", "total_liabilities", "total_equity", "reporting_period", "currency",
+        "balance_sheet": [
+        "total_assets", "total_liabilities", "total_equity",
+        "total_equity_and_liabilities", "reporting_period", "currency",
     ],
     "profit_and_loss": [
-        "revenue", "cost_of_sales", "gross_profit", "operating_expenses",
-        "operating_profit", "tax", "net_profit", "reporting_period", "currency",
-    ],
+    "revenue",
+    "cost_of_sales",
+    "gross_profit",
+    "operating_expenses",
+    "operating_profit",
+    "tax",
+    "net_profit",
+    "interest_earned",
+    "other_income",
+    "total_income",
+    "interest_expended",
+    "provisions_and_contingencies",
+    "total_expenditure",
+    "consolidated_net_profit_before_minority_interest",
+    "minority_interest",
+    "consolidated_net_profit_attributable_to_group",
+    "current_profit",
+    "brought_forward_profit",
+    "total_available_for_appropriation",
+    "reporting_period",
+    "currency",
+],
     "cash_flow_statement": [
-        "operating_cash_flow", "investing_cash_flow", "financing_cash_flow",
-        "opening_cash", "net_change_in_cash", "closing_cash", "reporting_period", "currency",
-    ],
+    "operating_cash_flow",
+    "investing_cash_flow",
+    "financing_cash_flow",
+    "fx_translation_adjustment",
+    "opening_cash",
+    "net_change_in_cash",
+    "closing_cash",
+    "reporting_period",
+    "currency",
+],
 }
 
 SYSTEM_PROMPT = """You are a precise financial document data extraction engine.
@@ -60,6 +87,41 @@ Rules you MUST follow:
 3. For tables (e.g. invoice line items): each row in the source text is one
    line item. Do not merge two rows into one, and do not split one row across
    two line items. Every row with a numeric amount should produce a line item.
+   Extract EVERY individual item row, even if there are many (10+) - do not
+   summarize, truncate, or sample the list.
+3b. NEVER include a summary/rollup/total row as a line item (e.g. any row
+   labeled "Total", "Subtotal", "Aggregate", "Aggregated Items", "Grand Total").
+   Line items must be individual purchasable items only. If the table has both
+   itemized rows and a summary row at the bottom, extract only the itemized
+   rows into "line_items" - the summary row's value belongs in the "subtotal"
+   or "total_amount" field instead, not in "line_items".
+3c. Indian tax invoices commonly have an HSN/SAC code column (a 4-8 digit
+   product classification code, e.g. "34029011") between the item description
+   and the quantity/rate columns. An HSN/SAC code is NOT a quantity - it does
+   not represent how many units were purchased. Put it in an optional
+   "hsn_code" key on the line item, never in "quantity". A real quantity for
+   a retail/wholesale line item is almost always a small number (typically
+   under 1000); if a number in the quantity position is much larger than that
+   and looks like a product code, it is an HSN/SAC code, not a quantity.
+   Sanity-check every row: quantity * unit_price should approximately equal
+   amount - if it doesn't, you likely have a column misaligned; re-examine
+   which value is the code, which is the quantity, and which is the rate.
+   If you cannot confidently assign quantity/unit_price for a row, leave
+   those two fields null rather than guessing - but still include the row
+   with its description and amount.
+
+3e. Financial statement line items (balance sheet, P&L, cash flow) often show
+   a small "Schedule" or "Note" reference number (e.g. "13", "14", "15", "16")
+   immediately between the row label and its actual monetary value - e.g.
+   "Interest earned | 13 | 128,552.40" where "13" is just a cross-reference to
+   a supporting schedule elsewhere in the report, NOT the field's value. Never
+   extract this reference number as the field's value. The real value is the
+   monetary amount that follows it (usually a much larger number, often with
+   decimals/commas). If a "value" you are about to assign to a financial
+   field is a small bare integer (roughly 1-99) with no decimals or comma
+   formatting, and a properly-formatted monetary number appears right after
+   it on the same row, use that larger monetary number instead - the small
+   integer was a schedule/note reference, not the amount.
 4. If a value is not present or not legible, set it to null. NEVER invent,
    guess, or infer a value that is not directly supported by the text.
 5. Identifiers such as invoice numbers may contain OCR noise (e.g. a capital
@@ -71,8 +133,40 @@ Rules you MUST follow:
 6. For each scalar field, provide an evidence object with the exact short
    source text snippet it came from (copy it verbatim from the input) and the
    page number it appeared on.
-7. If the document shows multiple periods/years (comparative statements), extract
-   values for each period distinctly and list them in "periods".
+7. Comparative-period tables: many financial statements show TWO adjacent
+   numeric columns for the same row - e.g. "Year ended 31-Mar-20" and
+   "Year ended 31-Mar-19", or "As at March 31, 2020" and the prior year. The
+   "fields" object must ALWAYS contain the CURRENT/MOST RECENT reporting
+   period's column (normally the first/leftmost numeric column, and the one
+   matching the period stated in the document header/"reporting_period"),
+   never the prior-year comparative column. This is a common source of error:
+   do not mix columns - pick ONE column (the current period) and read every
+   field from that same column consistently.
+   Self-check before finalizing: for any row you extracted labeled "Total"
+   (e.g. total income, total expenditure), verify it equals the sum of the
+   individual component rows above it, using values from the SAME column. If
+   your extracted "Total" does not equal the sum of the components you
+   extracted for that same row group, you have likely picked mismatched
+   columns for different rows - go back and re-read every value in that
+   section from the single correct (current-period) column.
+   If the document shows multiple periods, still list the period labels in
+   "periods", but "fields" itself must only reflect the current period.
+7b. Consolidated financial statements with a minority (non-controlling)
+   interest typically show a waterfall of THREE distinct profit figures in
+   this order - do not conflate them:
+   (a) the profit figure BEFORE any minority interest deduction (often
+       labeled just "Net profit for the year"),
+   (b) the minority interest amount being deducted (labeled "Less: Minority
+       interest" or similar), and
+   (c) the final consolidated profit AFTER that deduction, i.e. (a) minus (b)
+       (often labeled "Consolidated profit for the year" or "...attributable
+       to the group"/"...attributable to owners").
+   If you extract a field intended to represent "before minority interest",
+   it must hold the SAME value as the plain "net profit" figure (a) - never
+   the post-deduction figure (c). If you extract a field intended to
+   represent the profit "attributable to the group"/"after minority
+   interest", it must hold value (c), and must equal (a) minus (b) - verify
+   this arithmetic before finalizing.
 8. Numbers must be plain numbers (no currency symbols, no thousand separators)
    in "value". A number in parentheses, e.g. "(1,200)", means -1200.
 9. Output must match this exact JSON shape:
@@ -141,8 +235,10 @@ def _call_groq(system_prompt: str, user_prompt: str) -> str:
                         {"role": "user", "content": user_prompt},
                     ],
                     "temperature": 0,
+                    "max_completion_tokens": 8000,
+                    "reasoning_effort": "low",
                 },
-                timeout=60,
+                timeout=90,
             )
             if resp.status_code == 429 or resp.status_code >= 500:
                 raise requests.HTTPError(f"Retryable Groq error: {resp.status_code} {resp.text[:200]}")
@@ -150,7 +246,19 @@ def _call_groq(system_prompt: str, user_prompt: str) -> str:
                 logger.error("Groq API error %s: %s", resp.status_code, resp.text[:500])
                 raise ExtractionError(f"LLM provider returned an error ({resp.status_code}).")
             data = resp.json()
-            return data["choices"][0]["message"]["content"]
+            choice = data["choices"][0]
+            content = choice["message"]["content"]
+            if not content:
+                finish_reason = choice.get("finish_reason", "unknown")
+                logger.error(
+                    "Groq returned empty content (finish_reason=%s). Full response: %s",
+                    finish_reason, json.dumps(data)[:1000],
+                )
+                raise ExtractionError(
+                    f"LLM returned an empty response (finish_reason={finish_reason}). "
+                    "This usually means the token limit was hit before the model finished."
+                )
+            return content
 
         except ExtractionError:
             raise
@@ -160,9 +268,6 @@ def _call_groq(system_prompt: str, user_prompt: str) -> str:
             logger.warning("Groq call failed (attempt %d/%d): %s - retrying in %ds",
                             attempt + 1, settings.LLM_MAX_RETRIES, exc, wait)
             time.sleep(wait)
-
-    logger.error("Groq call failed after %d attempts: %s", settings.LLM_MAX_RETRIES, last_exc)
-    raise ExtractionError("LLM provider (Groq) was unavailable after multiple retries.")
 
 
 def _regex_fallback_invoice_number(pages_text: List[str]) -> Optional[Dict]:
@@ -223,6 +328,10 @@ def extract_fields(document_type: str, pages_text: List[str]) -> ExtractionPaylo
             if fallback:
                 logger.info("invoice_number recovered via regex fallback: %s", fallback["value"])
                 payload.fields["invoice_number"] = FieldValue(**fallback)
+
+    if document_type == "invoice" and payload.line_items:
+        from app.services.financial_validation_service import _filter_summary_rows
+        payload.line_items = _filter_summary_rows(payload.line_items)
 
     _apply_heuristic_confidence(payload, pages_text)
 
